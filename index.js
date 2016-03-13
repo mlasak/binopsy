@@ -18,6 +18,9 @@ const PRIMITIVE_TYPES = {
     'DoubleBE' : 8
 }
 
+//array with ints 1..24
+const BIT_VALS = Array.apply(null, Array(24)).map(function(_, i){ return i + 1 })
+
 const TYPE_FUNCTIONS = Object.keys(PRIMITIVE_TYPES).reduce(function(obj, key){
   var writeKey = 'write' + key
   obj[key.toLowerCase()] = {
@@ -52,20 +55,27 @@ function Serializer(){
   this.sizeOf = function(obj){ return 0 }
   this.writeFunc = function(obj, buf){ return 0 }
   this.vars = new Set()
+
+  this.endian = 'be'
+  this.bitRequests = []
 }
 
 Serializer.prototype.serialize = function(obj, buf){
+  this._flushBitfield()
+
   if(!Buffer.isBuffer(buf)){
     var size = this.sizeOf(obj)
     buf = new Buffer(size)
   }
 
-  this.writeFunc(obj, buf, 0)
+  this.writeFunc(obj, buf)
 
   return buf
 }
 
 Serializer.prototype.string = function(varName, options){
+  this._flushBitfield()
+
   var getVar = this._getVarFunc(varName, options)
 
   var sizeOf = this.sizeOf
@@ -157,10 +167,17 @@ Serializer.prototype.nest = function(varName, options){
     return offset + typeWrite(getVar(obj), buf.slice(offset))
   }
 
+  if(type.bitRequests && type.bitRequests.length){
+    this.bitRequests = this.bitRequests.concat(type.bitRequests.map(function(req){
+      return { i: req.i, getVar: function(obj){ return req.getVar(getVar(obj)) } }
+    }))
+  }
+
   return this
 }
 
 Serializer.prototype.array = function(varName, options){
+  this._flushBitfield()
   //TODO check if passed array has acceptable length
   var getVar = this._getVarFunc(varName, options)
 
@@ -205,6 +222,7 @@ Serializer.prototype.array = function(varName, options){
 }
 
 Serializer.prototype.choice = function(varName, options){
+  this._flushBitfield()
   var getVar = this._getVarFunc(varName, options)
 
   var sizeOf = this.sizeOf
@@ -245,6 +263,7 @@ Serializer.prototype.choice = function(varName, options){
 }
 
 Serializer.prototype.buffer = function(varName, options){
+  this._flushBitfield()
   //TODO check for length
   var getVar = this._getVarFunc(varName, options)
 
@@ -268,6 +287,7 @@ Object.keys(PRIMITIVE_TYPES).forEach(function(primitiveName){
   var primitiveSize = PRIMITIVE_TYPES[primitiveName]
 
   Serializer.prototype[primitiveName.toLowerCase()] = function(varName, options){
+    this._flushBitfield()
     var getVar = this._getVarFunc(varName, options)
 
     //add the size of the primitive
@@ -285,6 +305,79 @@ Object.keys(PRIMITIVE_TYPES).forEach(function(primitiveName){
     return this
   }
 })
+
+BIT_VALS.forEach(function(i){
+  Serializer.prototype['bit' + i] = function(varName, options){
+    this.bitRequests.push({ i: i, getVar: this._getVarFunc(varName, options), varName: varName })
+    return this
+  }
+})
+
+Serializer.prototype._flushBitfield = function(){
+  if(!this.bitRequests.length) return
+
+  var that = this
+
+  var writeFunc = this.writeFunc
+  this.writeFunc = function(obj, buf){
+    var offset = writeFunc(obj, buf)
+    buf[offset] = 0
+    return offset
+  }
+
+  var reqs = this.bitRequests
+
+  if(this.endian === 'le') reqs = reqs.reverse()
+
+  //write writeFunc as a side effect
+  var length = reqs.reduce(function(sum, req){
+    var writeFunc = that.writeFunc
+
+    var i = req.i
+    var bits = sum % 8
+    var getVar = req.getVar
+
+    that.writeFunc = function(obj, buf){
+      var offset = writeFunc(obj, buf)
+      var val = getVar(obj)
+      var remainingBits = i
+      while(remainingBits > 0){
+        var bitsToWrite = val & ((1 << (9 - bits)) - 1)
+        var bitOffset = 8 - Math.min(bits + remainingBits, 7)
+        var writeVal = bitsToWrite << bitOffset
+        console.log("Writing %s=%s (%s << %s = %s) onto %s",req.varName,
+          val.toString(2), bitsToWrite.toString(2), bitOffset, writeVal.toString(2),
+          buf[offset].toString(2)
+        )
+        buf[offset] |= writeVal
+        if(remainingBits + bits >= 8){
+          console.log("completed %d with val %s", offset, buf[offset].toString(2))
+          offset += 1
+          buf[offset] = 0
+          bits = remainingBits % 9
+          remainingBits -= 8 - bits
+          val >>= 8 - bits
+        } else {
+          bits += remainingBits
+          break
+        }
+      }
+
+      return offset
+    }
+
+    return sum + i
+  }, 0, this)
+
+  var sizeOf = this.sizeOf
+  var bytes = Math.ceil(length / 8)
+
+  this.sizeOf = function(obj){
+    return bytes + sizeOf(obj)
+  }
+
+  this.bitRequests = []
+}
 
 Serializer.prototype._getVarFunc = function(varName, options) {
   //to ensure getting a value is the same while reading & serializing
@@ -305,3 +398,30 @@ Serializer.prototype._getVarFunc = function(varName, options) {
 
   return getGetVarFunc(varName)
 }
+
+//copied from binary_parser.js
+Serializer.prototype.endianess = function(endianess) {
+    switch (endianess.toLowerCase()) {
+    case 'little':
+        this.endian = 'le'
+        break
+    case 'big':
+        this.endian = 'be'
+        break
+    default:
+        throw new Error('Invalid endianess: ' + endianess)
+    }
+
+    return this
+}
+
+Object.keys(PRIMITIVE_TYPES)
+  .filter(RegExp.prototype.test, /BE$/)
+  .map(Function.prototype.call, String.prototype.toLowerCase)
+  .forEach(function(primitiveName){
+    var name = primitiveName.slice(0, -2).toLowerCase()
+
+    Serializer.prototype[name] = function(varName, options){
+      return this[name + this.endian](varName, options)
+    }
+  })
