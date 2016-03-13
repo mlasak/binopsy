@@ -318,9 +318,9 @@ Serializer.prototype._flushBitfield = function(){
 
   var that = this
 
-  var writeFunc = this.writeFunc
-  this.writeFunc = function(obj, buf){
-    var offset = writeFunc(obj, buf)
+  var beforePrepareFunc = this.writeFunc
+  this.writeFunc = function prepare(obj, buf){
+    var offset = beforePrepareFunc(obj, buf)
     buf[offset] = 0
     return offset
   }
@@ -334,32 +334,29 @@ Serializer.prototype._flushBitfield = function(){
     var writeFunc = that.writeFunc
 
     var i = req.i
-    var bits = sum % 8
+    var innerByteOffset = sum % 8
     var getVar = req.getVar
 
     that.writeFunc = function(obj, buf){
       var offset = writeFunc(obj, buf)
       var val = getVar(obj)
-      var remainingBits = i
-      while(remainingBits > 0){
-        var bitsToWrite = val & ((1 << (9 - bits)) - 1)
-        var bitOffset = 8 - Math.min(bits + remainingBits, 7)
-        var writeVal = bitsToWrite << bitOffset
-        console.log("Writing %s=%s (%s << %s = %s) onto %s",req.varName,
-          val.toString(2), bitsToWrite.toString(2), bitOffset, writeVal.toString(2),
-          buf[offset].toString(2)
-        )
-        buf[offset] |= writeVal
-        if(remainingBits + bits >= 8){
-          console.log("completed %d with val %s", offset, buf[offset].toString(2))
+      var bitsWrittenInByte = innerByteOffset
+      var remainingBitsToWrite = i
+
+      while(remainingBitsToWrite > 0){
+
+        //only consider first `shiftAmount` writable bits
+        //if `shiftAmount` is negative, there are bits left over
+        var shiftAmount = bitsWrittenInByte + remainingBitsToWrite - 8
+        buf[offset] |= shiftAmount < 0 ? val << -shiftAmount : val >> shiftAmount
+
+        remainingBitsToWrite -= 8 - bitsWrittenInByte
+
+        if(remainingBitsToWrite >= 0){
+          val &= (1 << remainingBitsToWrite) - 1
           offset += 1
           buf[offset] = 0
-          bits = remainingBits % 9
-          remainingBits -= 8 - bits
-          val >>= 8 - bits
-        } else {
-          bits += remainingBits
-          break
+          bitsWrittenInByte = 0
         }
       }
 
@@ -368,6 +365,14 @@ Serializer.prototype._flushBitfield = function(){
 
     return sum + i
   }, 0, this)
+
+  if(length % 8){
+    //if there is an incomplete byte, ensure we continue at next byte
+    var beforeCompleteFunc = this.writeFunc
+    this.writeFunc = function complete(obj, buf){
+      return 1 + beforeCompleteFunc(obj, buf)
+    }
+  }
 
   var sizeOf = this.sizeOf
   var bytes = Math.ceil(length / 8)
