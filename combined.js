@@ -3,23 +3,17 @@ module.exports = Bin
 var Parser = require('./binary-parser').Parser
 var Serializer = require('./')
 
-//copied from binary_parser.js
-const PRIMITIVE_TYPES = {
-    'UInt8'    : 1,
-    'UInt16LE' : 2,
-    'UInt16BE' : 2,
-    'UInt32LE' : 4,
-    'UInt32BE' : 4,
-    'Int8'     : 1,
-    'Int16LE'  : 2,
-    'Int16BE'  : 2,
-    'Int32LE'  : 4,
-    'Int32BE'  : 4,
-    'FloatLE'  : 4,
-    'FloatBE'  : 4,
-    'DoubleLE' : 8,
-    'DoubleBE' : 8
-}
+const PRIMITIVES = [
+  'int8', 'uint8',
+  'int16', 'int16be', 'int16le',
+  'int32', 'int32be', 'int32le',
+  'uint16', 'uint16be', 'uint16le',
+  'uint32', 'uint32be', 'uint32le',
+  'double', 'doublebe', 'doublele',
+  'float', 'floatbe', 'floatle',
+]
+
+const BITS = Array.apply(null, Array(24)).map(function(_, i){ return 'bit' + (i + 1) })
 
 function Bin(){
   this.parser = new Parser
@@ -42,16 +36,17 @@ Bin.prototype.sizeOf = function(obj){
 }
 
 ;['string', 'buffer', 'array', 'nest']
-  .concat(Object.keys(PRIMITIVE_TYPES).map(Function.prototype.call, String.prototype.toLowerCase))
-  //TODO bitfields
+  .concat(PRIMITIVES)
+  .concat(BITS)
   .forEach(function(name){
     Bin.prototype[name] = function(varName, options){
       if(options && options.type instanceof Bin){
         var parserOpts = {__proto__: options, type: options.type.parser}
         var serializerOpts = {__proto__: options, type: options.type.serializer}
       }
+
       this.parser[name](varName, parserOpts || options)
-      this.serializer[name] && this.serializer[name](varName, serializerOpts || options) //TODO
+      this.serializer[name](varName, serializerOpts || options)
       return this
     }
   })
@@ -86,40 +81,9 @@ Bin.prototype.create = function(constructorFn){
   }
 })
 
-Object.keys(PRIMITIVE_TYPES)
-  .filter(RegExp.prototype.test, /BE$/)
-  .map(Function.prototype.call, String.prototype.toLocaleLowerCase)
-  .forEach(function(primitiveName){
-    var name = primitiveName.slice(0, -2).toLowerCase()
-
-    Bin.prototype[name] = function(varName, options){
-      return this[name + this.endian](varName, options)
-    }
-  })
-
-for(var i = 1; i < 25; i++){
-  (function(i){
-    var name = 'bit' + i
-    Bin.prototype[name] = function(varName, options){
-      this.parser[name](varName, options)
-      //TODO implement in serializer
-      return this
-    }
-  }(i))
-}
-
-//copied from binary_parser.js
 Bin.prototype.endianess = function(endianess) {
-    switch (endianess.toLowerCase()) {
-    case 'little':
-        this.endian = 'le'
-        break
-    case 'big':
-        this.endian = 'be'
-        break
-    default:
-        throw new Error('Invalid endianess: ' + endianess)
-    }
+    this.parser.endianess(endianess)
+    this.serializer.endianess(endianess)
 
     return this
 }
