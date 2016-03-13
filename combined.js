@@ -1,6 +1,6 @@
 module.exports = Bin
 
-var Parser = require('./binary-parser').Parser
+var Parser = require('binary-parser').Parser
 var Serializer = require('./')
 
 const PRIMITIVES = [
