@@ -46,7 +46,7 @@ function getType(type){
 
 function getGetVarFunc(varName){
   return function(obj){
-    if(!(varName in obj)) throw new Error('var not found')
+    if(!(varName in obj)) throw new Error('var `' + varName + '` not found')
     return obj[varName]
   }
 }
@@ -396,7 +396,7 @@ Serializer.prototype._getVarFunc = function(varName, options) {
   if(options && options.deformatter){
     var deformatter = options.deformatter
     return function(obj){
-      if(!(varName in obj)) throw new Error('var not found')
+      if(!(varName in obj)) throw new Error('var `' + varName + '` not found')
       return deformatter(obj[varName])
     }
   }
