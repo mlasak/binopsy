@@ -27,7 +27,7 @@ Bin.prototype.serialize = function(obj, buf){
 
 Bin.prototype.sizeOf = function(obj){
   if(obj == null) return this.parser.sizeOf()
-  return this.serializer.sizeOf(obj)
+  return this.serializer.sizeFunc(obj)
 }
 
 ;['string', 'buffer', 'array', 'nest']
