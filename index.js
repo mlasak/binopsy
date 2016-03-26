@@ -81,17 +81,16 @@ Serializer.prototype.string = function(varName, options){
   var sizeOf = this.sizeOf
   var writeFunc = this.writeFunc
 
-  //FIXME only utf8/1-byte-per-char currently works reliably
   var encoding = options.encoding || 'utf8'
 
   if(options.length){
     var length = options.length
 
-    var getLength = typeof options.length === 'number' ?
+    var getLength = typeof length === 'number' ?
                       function(obj){ return length } :
-                    typeof options.length === 'string' ?
+                    typeof length === 'string' ?
                       function(obj){ return obj[length] } :
-                      function(obj){ return length(obj) } //assume it's a function
+                      function(obj){ return length.call(obj) } //assume it's a function
 
     this.sizeOf = options.zeroTerminated ?
                     function(obj){
