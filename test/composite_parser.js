@@ -1,6 +1,6 @@
 var assert = require('assert');
 var util = require('util');
-var Parser = require('../combined').Parser;
+var Parser = require('../').Parser;
 
 function checkResult(parser, buffer, object){
   assert.deepEqual(parser.parse(buffer), object);
