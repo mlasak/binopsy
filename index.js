@@ -37,11 +37,10 @@ Bin.prototype.sizeOf = function(obj){
     Bin.prototype[name] = function(varName, options){
       if(options && options.type instanceof Bin){
         var parserOpts = {__proto__: options, type: options.type.parser}
-        var serializerOpts = {__proto__: options, type: options.type.serializer}
       }
 
       this.parser[name](varName, parserOpts || options)
-      this.serializer[name](varName, serializerOpts || options)
+      this.serializer[name](varName, options)
       return this
     }
   })
@@ -49,19 +48,17 @@ Bin.prototype.sizeOf = function(obj){
 Bin.prototype.choice = function(varName, options){
   var choices = options.choices
   var parserChoices = {}
-  var serializerChoices = {}
 
   for(var key in choices){
     if(typeof choices[key] === "object"){
       parserChoices[key] = choices[key].parser
-      serializerChoices[key] = choices[key].serializer
     } else {
-      parserChoices[key] = serializerChoices[key] = choices[key]
+      parserChoices[key] = choices[key]
     }
   }
 
   this.parser.choice(varName, {__proto__:options, choices: parserChoices})
-  this.serializer.choice(varName, {__proto__:options, choices: serializerChoices})
+  this.serializer.choice(varName, options)
   return this
 }
 
@@ -73,6 +70,24 @@ Bin.prototype.create = function(constructorFn){
 ;['getCode', 'compile', 'parse'].forEach(function(name){
   Bin.prototype[name] = function(buffer, callback){
     return this.parser[name](buffer, callback)
+  }
+})
+
+Object.defineProperty(Bin.prototype, 'writeFunc', {
+  get: function(){
+    return this.serializer.writeFunc
+  }
+})
+
+Object.defineProperty(Bin.prototype, 'sizeFunc', {
+  get: function(){
+    return this.serializer.sizeFunc
+  }
+})
+
+Object.defineProperty(Bin.prototype, 'bitRequests', {
+  get: function(){
+    return this.serializer.bitRequests
   }
 })
 
