@@ -3,15 +3,10 @@ module.exports = Bin
 var Parser = require('binary-parser').Parser
 var Serializer = require('./')
 
-const PRIMITIVES = [
-  'int8', 'uint8',
-  'int16', 'int16be', 'int16le',
-  'int32', 'int32be', 'int32le',
-  'uint16', 'uint16be', 'uint16le',
-  'uint32', 'uint32be', 'uint32le',
-  'double', 'doublebe', 'doublele',
-  'float', 'floatbe', 'floatle',
-]
+const PRIMITIVE_TYPES = require('./lib/primitive_types.json')
+const PRIMITIVES = Object.keys(PRIMITIVE_TYPES).map(function(key){
+  return key.toLowerCase()
+})
 
 const BITS = Array.apply(null, Array(24)).map(function(_, i){ return 'bit' + (i + 1) })
 
