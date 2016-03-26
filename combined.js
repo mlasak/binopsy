@@ -1,7 +1,7 @@
 module.exports = Bin
 
-var Parser = require('binary-parser').Parser
-var Serializer = require('./')
+const Parser = require('binary-parser').Parser
+const Serializer = require('./lib/serializer.js')
 
 const PRIMITIVE_TYPES = require('./lib/primitive_types.json')
 const PRIMITIVES = Object.keys(PRIMITIVE_TYPES).map(function(key){
