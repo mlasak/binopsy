@@ -1,32 +1,10 @@
 module.exports = Serializer
 
 const PRIMITIVE_TYPES = require('./lib/primitive_types.json')
+const getType = require('./lib/type_functions.js')
 
 //array with ints 1..24
 const BIT_VALS = Array.apply(null, Array(24)).map(function(_, i){ return i + 1 })
-
-const TYPE_FUNCTIONS = Object.keys(PRIMITIVE_TYPES).reduce(function(obj, key){
-  var writeKey = 'write' + key
-  obj[key.toLowerCase()] = {
-    sizeOf: function(){
-      return PRIMITIVE_TYPES[key]
-    },
-    writeFunc: function(val, buf){
-      return buf[writeKey](val)
-    }
-  }
-  return obj
-}, {})
-
-function getType(type){
-  if(typeof type === "string" && type in TYPE_FUNCTIONS){
-    return TYPE_FUNCTIONS[type]
-  } else if(!(type instanceof Serializer)){
-    throw new Error("type needs to be a serializer or a primitive")
-  }
-
-  return type
-}
 
 function getGetVarFunc(varName){
   return function(obj){
