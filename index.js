@@ -117,8 +117,11 @@ Object.defineProperty(Bin.prototype, 'sizeFunc', {
 })
 
 Bin.prototype.nest = function(varName, options){
-  if(options && options.type && options.type.bitRequests && options.type.bitRequests.length){
-    this.bitRequests = this.bitRequests.concat(options.type.bitRequests.map(function(req){
+  var type = getType(options.type)
+  var opts = {__proto__: options, type: type}
+
+  if(type.bitRequests && type.bitRequests.length){
+    this.bitRequests = this.bitRequests.concat(type.bitRequests.map(function(req){
       return {
         i: req.i,
         vars: [varName].concat(req.vars)
@@ -126,8 +129,8 @@ Bin.prototype.nest = function(varName, options){
     }, this))
   }
 
-  this.parser.nest(varName, {__proto__: options, type: options.type.parser})
-  this.serializer.nest(varName, options)
+  this.parser.nest(varName, {__proto__: options, type: type.parser})
+  this.serializer.nest(varName, opts)
   return this
 }
 
