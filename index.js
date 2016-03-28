@@ -1,3 +1,5 @@
+'use strict'
+
 module.exports = Bin
 
 const Parser = require('binary-parser').Parser
