@@ -3,6 +3,8 @@ module.exports = Bin
 const Parser = require('binary-parser').Parser
 const Serializer = require('./lib/serializer.js')
 
+const getType = require('./lib/type_functions.js')
+
 const PRIMITIVE_TYPES = require('./lib/primitive_types.json')
 const PRIMITIVES = Object.keys(PRIMITIVE_TYPES).map(function(key){
   return key.toLowerCase()
@@ -54,10 +56,12 @@ Bin.prototype.sizeOf = function(obj){
 Bin.prototype.choice = function(varName, options){
   this._flushBitfield()
 
-  var choices = options.choices
-  var parserChoices = {}
+  const choices = options.choices
+  const mappedChoices = {}
+  const parserChoices = {}
 
   for(var key in choices){
+    mappedChoices[key] = getType(choices[key])
     if(typeof choices[key] === "object"){
       parserChoices[key] = choices[key].parser
     } else {
@@ -65,8 +69,27 @@ Bin.prototype.choice = function(varName, options){
     }
   }
 
+  const defaultChoice = options.defaultChoice && getType(options.defaultChoice)
+
+  const tag = options.tag
+  function getTag(obj){
+    if(!(tag in obj)) throw new Error('tag `' + tag + '` not found in object')
+    return obj[tag]
+  }
+
+  var getChoice = defaultChoice ?
+                  function(obj){
+                    var key = getTag(obj)
+                    return key in mappedChoices ? mappedChoices[key] : defaultChoice
+                  } :
+                  function(obj){
+                    var choice = mappedChoices[getTag(obj)]
+                    if(!choice) throw new Error('invalid choice')
+                    return choice
+                  }
+
   this.parser.choice(varName, {__proto__:options, choices: parserChoices})
-  this.serializer.choice(varName, options)
+  this.serializer.choice(varName, options, getChoice)
   return this
 }
 
