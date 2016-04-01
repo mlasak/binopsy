@@ -2,7 +2,7 @@
 
 module.exports = Bin
 
-const Parser = require('binary-parser').Parser
+const Parser = require('./lib/parser.js')
 const Serializer = require('./lib/serializer.js')
 
 const getType = require('./lib/type_functions.js')
@@ -27,7 +27,7 @@ Bin.start = function () {
   return new Bin()
 }
 
-Bin.Parser = Bin // work as drop-in replacement
+Bin.Parser = Bin // work as drop-in replacement for binary-parser
 
 Bin.prototype.serialize = function (obj, buf) {
   this._flushBitfield()
@@ -35,7 +35,7 @@ Bin.prototype.serialize = function (obj, buf) {
 }
 
 Bin.prototype.sizeOf = function (obj) {
-  if (obj == null) return this.parser.sizeOf()
+  if (obj == null) return this.parser.fixedSize
   return this.serializer.sizeFunc(obj)
 }
 
@@ -45,11 +45,7 @@ Bin.prototype.sizeOf = function (obj) {
     Bin.prototype[name] = function (varName, options) {
       this._flushBitfield()
 
-      if (options && options.type instanceof Bin) {
-        var parserOpts = {__proto__: options, type: options.type.parser}
-      }
-
-      this.parser[name](varName, parserOpts || options)
+      this.parser[name](varName, options, options && options.type && getType(options.type))
       this.serializer[name](varName, options)
       return this
     }
@@ -60,15 +56,9 @@ Bin.prototype.choice = function (varName, options) {
 
   const choices = options.choices
   const mappedChoices = {}
-  const parserChoices = {}
 
   for (var key in choices) {
     mappedChoices[key] = getType(choices[key])
-    if(typeof choices[key] === "object"){
-      parserChoices[key] = choices[key].parser
-    } else {
-      parserChoices[key] = choices[key]
-    }
   }
 
   const defaultChoice = options.defaultChoice && getType(options.defaultChoice)
@@ -90,23 +80,25 @@ Bin.prototype.choice = function (varName, options) {
                     return choice
                   }
 
-  this.parser.choice(varName, {__proto__:options, choices: parserChoices})
+  this.parser.choice(varName, options, getChoice)
   this.serializer.choice(varName, options, getChoice)
   return this
 }
 
 Bin.prototype.create = function (constructorFn) {
   this.parser.create(constructorFn)
-  this.pparser.create(constructorFn)
   return this
 }
 
-;['getCode', 'compile', 'parse'].forEach(function(name){
-  Bin.prototype[name] = function(buffer, callback){
-    return this.parser[name](buffer, callback)
-  }
-})
+Bin.prototype.compile = function () { /* do nothing */ }
+Bin.prototype.getCode = function () { throw new Error('not implemented') }
 
+Bin.prototype.parse = function (buffer, callback) {
+  this._flushBitfield()
+  return this.parser.parse(buffer, callback)
+}
+
+// alias properties
 Object.defineProperty(Bin.prototype, 'writeFunc', {
   get: function () {
     return this.serializer.writeFunc
@@ -121,13 +113,19 @@ Object.defineProperty(Bin.prototype, 'sizeFunc', {
 
 Object.defineProperty(Bin.prototype, 'readFunc', {
   get: function () {
-    return this.pparser.readFunc
+    return this.parser.readFunc
   }
 })
 
 Object.defineProperty(Bin.prototype, 'constructorFn', {
   get: function () {
-    return this.pparser.constructorFn
+    return this.parser.constructorFn
+  }
+})
+
+Object.defineProperty(Bin.prototype, 'fixedSize', {
+  get: function () {
+    return this.parser.fixedSize
   }
 })
 
@@ -135,7 +133,7 @@ Bin.prototype.nest = function (varName, options) {
   var type = getType(options.type)
   var opts = {__proto__: options, type: type}
 
-  if (type.bitRequests && type.bitRequests.length) {
+  if (type.bitRequests.length) {
     this.bitRequests = this.bitRequests.concat(type.bitRequests.map(function (req) {
       return {
         i: req.i,
@@ -146,7 +144,7 @@ Bin.prototype.nest = function (varName, options) {
     }, this))
   }
 
-  this.parser.nest(varName, {__proto__: options, type: type.parser})
+  this.parser.nest(varName, opts)
   this.serializer.nest(varName, opts)
   return this
 }
@@ -170,15 +168,13 @@ Bin.prototype._flushBitfield = function () {
   }, 0)
 
   this.serializer._processBitfield(reqs, length)
-  this.pparser.processBitfield(reqs)
+  this.parser.processBitfield(reqs)
 
   reqs.length = 0
 }
 
 // copied from binary_parser.js
 Bin.prototype.endianess = function (endianess) {
-  this.parser.endianess(endianess)
-
   switch (endianess.toLowerCase()) {
     case 'little':
       this.endian = 'le'
