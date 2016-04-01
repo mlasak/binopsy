@@ -165,7 +165,11 @@ Bin.prototype._flushBitfield = function () {
   if (!reqs.length) return
   if (this.endian === 'le') reqs = reqs.reverse()
 
-  this.serializer._processBitfield(reqs)
+  const length = reqs.reduce(function (sum, req) {
+    return sum + req.i
+  }, 0)
+
+  this.serializer._processBitfield(reqs, length)
   this.pparser.processBitfield(reqs)
 
   reqs.length = 0
