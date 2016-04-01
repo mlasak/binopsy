@@ -6,11 +6,13 @@
   "main": "index.js",
   "devDependencies": {
     "istanbul": "^0.3.14",
-    "mocha": "^2.2.5"
+    "mocha": "^2.2.5",
+    "standard": "^6.0.8"
   },
   "scripts": {
     "test": "mocha --reporter spec",
-    "cover": "istanbul cover --report html node_modules/.bin/_mocha"
+    "cover": "istanbul cover --report html node_modules/.bin/_mocha",
+    "lint": "standard index.js lib/*.js"
   },
   "keywords": [
     "binary",
