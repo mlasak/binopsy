@@ -98,6 +98,10 @@ Bin.prototype.parse = function (buffer, callback) {
   return this.parser.parse(buffer, callback)
 }
 
+Bin.prototype.stream = function () {
+  return this.parser.stream()
+}
+
 // alias properties
 Object.defineProperty(Bin.prototype, 'writeFunc', {
   get: function () {
