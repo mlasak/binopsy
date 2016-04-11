@@ -172,7 +172,7 @@ Bin.prototype._flushBitfield = function () {
   }, 0)
 
   this.serializer._processBitfield(reqs, length)
-  this.parser.processBitfield(reqs)
+  this.parser.processBitfield(reqs, length)
 
   reqs.length = 0
 }
