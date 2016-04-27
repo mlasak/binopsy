@@ -2,9 +2,31 @@ var assert = require('assert');
 var util = require('util');
 var Parser = require('../').Parser;
 
-function checkResult(parser, buffer, object){
+function checkResult(parser, buffer, object, done){
   assert.deepEqual(parser.parse(buffer), object);
   assert.deepEqual(binaryString(parser.serialize(object)), binaryString(buffer));
+
+  var received = false
+
+  var stream = parser.stream().on('data', function (parsed) {
+    assert.deepEqual(parsed, object)
+    received = true
+  }).on('end', function () {
+    if (received) done()
+    else throw new Error('end without data')
+  })
+
+  for(var i = 1; i <= buffer.length; i++){
+    stream.write(buffer.slice(i - 1, i))
+  }
+
+  stream.end()
+}
+
+function getCb (count, done) {
+  return function cb () {
+    if(--count === 0) done()
+  }
 }
 
 function binaryString(buf){
@@ -19,7 +41,7 @@ describe('Primitive parser', function(){
             var buffer = new Buffer([0xa, 0x14, 0x1e, 0x28, 0x32]);
             checkResult(parser, buffer, {});
         });*/
-        it('should parse integer types', function(){
+        it('should parse integer types', function(done){
             var parser =
             Parser.start()
             .uint8('a')
@@ -27,9 +49,9 @@ describe('Primitive parser', function(){
             .uint32be('c');
 
             var buffer = new Buffer([0x00, 0xd2, 0x04, 0x00, 0xbc, 0x61, 0x4e]);
-            checkResult(parser, buffer, {a: 0, b: 1234, c: 12345678});
+            checkResult(parser, buffer, {a: 0, b: 1234, c: 12345678}, done);
         });
-        it('should use formatter to transform parsed integer', function(){
+        it('should use formatter to transform parsed integer', function(done){
             var parser =
             Parser.start()
             .uint8('a', {
@@ -42,7 +64,7 @@ describe('Primitive parser', function(){
             });
 
             var buffer = new Buffer([0x01, 0xd2, 0x04]);
-            checkResult(parser, buffer, {a: 2, b: "test1234"});
+            checkResult(parser, buffer, {a: 2, b: "test1234"}, done);
         });
         it('should parse floating point types', function(){
             var parser =
@@ -62,14 +84,14 @@ describe('Primitive parser', function(){
 
             assert.deepEqual(parser.serialize(result), buffer)
         });
-        it('should handle endianess', function(){
+        it('should handle endianess', function(done){
             var parser =
             Parser.start()
             .int32le('little')
             .int32be('big');
 
             var buffer = new Buffer([0x4e, 0x61, 0xbc, 0x00, 0x00, 0xbc, 0x61, 0x4e]);
-            checkResult(parser, buffer, {little: 12345678, big: 12345678});
+            checkResult(parser, buffer, {little: 12345678, big: 12345678}, done);
         });
         /*it('should skip when specified', function(){
             var parser =
@@ -102,7 +124,9 @@ describe('Primitive parser', function(){
             assert.deepEqual(binaryLiteral('11110000 10100101'), new Buffer([0xf0, 0xa5]));
         });
 
-        it('should parse 1-byte-length bit field sequence', function() {
+        it('should parse 1-byte-length bit field sequence', function(done) {
+            var cb = getCb(2, done)
+
             var parser = new Parser()
                 .bit1('a')
                 .bit2('b')
@@ -115,7 +139,7 @@ describe('Primitive parser', function(){
                 b: 2,
                 c: 10,
                 d: 0
-            });
+            }, cb);
 
             parser = new Parser()
                 .endianess('little')
@@ -129,9 +153,11 @@ describe('Primitive parser', function(){
                 b: 2,
                 c: 10,
                 d: 1
-            });
+            }, cb);
         });
-        it('should parse 2-byte-length bit field sequence', function() {
+        it('should parse 2-byte-length bit field sequence', function(done) {
+            var cb = getCb(2, done)
+
             var parser = new Parser()
                 .bit3('a')
                 .bit9('b')
@@ -142,7 +168,7 @@ describe('Primitive parser', function(){
                 a: 5,
                 b: 455,
                 c: 7
-            });
+            }, cb);
 
             parser = new Parser()
                 .endianess('little')
@@ -153,9 +179,11 @@ describe('Primitive parser', function(){
                 a: 7,
                 b: 398,
                 c: 11
-            });
+            }, cb);
         });
-        it('should parse 4-byte-length bit field sequence', function() {
+        it('should parse 4-byte-length bit field sequence', function(done) {
+            var cb = getCb(2, done)
+
             var parser = new Parser()
                 .bit1('a')
                 .bit24('b')
@@ -169,7 +197,7 @@ describe('Primitive parser', function(){
                 c: 15,
                 d: 1,
                 e: 1
-            });
+            }, cb);
 
             parser = new Parser()
                 .endianess('little')
@@ -184,9 +212,9 @@ describe('Primitive parser', function(){
                 c: 10,
                 d: 2,
                 e: 1
-            });
+            }, cb);
         });
-        it('should parse nested bit fields', function() {
+        it('should parse nested bit fields', function(done) {
             var parser = new Parser()
                 .bit1('a')
                 .nest('x', {
@@ -205,47 +233,47 @@ describe('Primitive parser', function(){
                     c: 10,
                     d: 0
                 }
-            });
+            }, done);
         });
     });
 
     describe('String parser', function() {
-        it('should parse ASCII encoded string', function(){
+        it('should parse ASCII encoded string', function(done){
             var text = 'hello, world';
             var buffer = new Buffer(text, 'ascii');
             var parser = Parser.start().string('msg', {length: buffer.length, encoding: 'ascii'});
 
-            checkResult(parser, buffer, {msg: text});
+            checkResult(parser, buffer, {msg: text}, done);
         });
-        it('should parse UTF8 encoded string', function(){
+        it('should parse UTF8 encoded string', function(done){
             var text = 'こんにちは、せかい。';
             var buffer = new Buffer(text, 'utf8');
             var parser = Parser.start().string('msg', {length: buffer.length, encoding: 'utf8'});
 
-            checkResult(parser, buffer, {msg: text});
+            checkResult(parser, buffer, {msg: text}, done);
         });
-        it('should parse HEX encoded string', function(){
+        it('should parse HEX encoded string', function(done){
             var text = 'cafebabe';
             var buffer = new Buffer(text, 'hex');
             var parser = Parser.start().string('msg', {length: buffer.length, encoding: 'hex'});
 
-            checkResult(parser, buffer, {msg: text});
+            checkResult(parser, buffer, {msg: text}, done);
         });
-        it('should parse variable length string', function(){
+        it('should parse variable length string', function(done){
             var buffer = new Buffer('0c68656c6c6f2c20776f726c64', 'hex');
             var parser = Parser.start()
                 .uint8('length')
                 .string('msg', {length: 'length', encoding: 'utf8'});
 
-            checkResult(parser, buffer, {msg: 'hello, world', length: 12});
+            checkResult(parser, buffer, {msg: 'hello, world', length: 12}, done);
         });
-        it('should parse zero terminated string', function(){
+        it('should parse zero terminated string', function(done){
             var buffer = new Buffer('68656c6c6f2c20776f726c6400', 'hex');
             var parser = Parser.start().string('msg', {zeroTerminated: true, encoding: 'ascii'});
 
-            checkResult(parser, buffer, {msg: 'hello, world'});
+            checkResult(parser, buffer, {msg: 'hello, world'}, done);
         });
-        it('should parser zero terminated fixed-length string', function() {
+        it('should parser zero terminated fixed-length string', function(done) {
             var buffer = new Buffer('abc\u0000defghij\u0000');
             var parser = Parser.start()
                 .string('a', {length: 5, zeroTerminated: true})
@@ -256,20 +284,22 @@ describe('Primitive parser', function(){
                 a: 'abc',
                 b: 'defgh',
                 c: 'ij'
-            });
+            }, done);
         });
-        it('should strip trailing null characters', function() {
+        it('should strip trailing null characters', function(done) {
             var buffer = new Buffer('746573740000', 'hex');
             var parser1 = Parser.start().string('str', {length: 6, stripNull: false});
             var parser2 = Parser.start().string('str', {length: 6, stripNull: true});
 
-            checkResult(parser1, buffer, {str: 'test\u0000\u0000'});
-            checkResult(parser2, buffer, {str: 'test'});
+            var cb = getCb(2, done)
+
+            checkResult(parser1, buffer, {str: 'test\u0000\u0000'}, cb);
+            checkResult(parser2, buffer, {str: 'test'}, cb);
         });
     });
 
     describe('Buffer parser', function() {
-        it('should parse as buffer', function() {
+        it('should parse as buffer', function(done) {
             var parser = new Parser()
                 .uint8('len')
                 .buffer('raw', {
@@ -279,10 +309,10 @@ describe('Primitive parser', function(){
             var buf = new Buffer('deadbeefdeadbeef', 'hex');
             var buffer = Buffer.concat([new Buffer([8]), buf]);
 
-            checkResult(parser, buffer, { len: 8, raw: buf });
+            checkResult(parser, buffer, { len: 8, raw: buf }, done);
         });
 
-        it('should clone buffer if options.clone is true', function() {
+        it('should clone buffer if options.clone is true', function(done) {
             var parser = new Parser()
                 .buffer('raw', {
                     length: 8,
@@ -290,7 +320,7 @@ describe('Primitive parser', function(){
                 });
 
             var buf = new Buffer('deadbeefdeadbeef', 'hex');
-            checkResult(parser, buf, { raw: buf });
+            checkResult(parser, buf, { raw: buf }, done);
 
             var result = parser.parse(buf);
             result.raw[0] = 0xff;

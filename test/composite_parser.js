@@ -2,14 +2,36 @@ var assert = require('assert');
 var util = require('util');
 var Parser = require('../').Parser;
 
-function checkResult(parser, buffer, object){
+function checkResult(parser, buffer, object, done){
   assert.deepEqual(parser.parse(buffer), object);
   assert.deepEqual(parser.serialize(object).toString(), buffer.toString());
+
+  var received = false
+
+  var stream = parser.stream().on('data', function (parsed) {
+    assert.deepEqual(parsed, object)
+    received = true
+  }).on('end', function () {
+    if (received) done()
+    else throw new Error('end without data')
+  })
+
+  for(var i = 1; i <= buffer.length; i++){
+    stream.write(buffer.slice(i - 1, i))
+  }
+
+  stream.end()
+}
+
+function getCb (count, done) {
+  return function cb () {
+    if(--count === 0) done()
+  }
 }
 
 describe('Composite parser', function(){
     describe('Array parser', function() {
-        it('should parse array of primitive types', function(){
+        it('should parse array of primitive types', function(done){
             var parser =
                 Parser.start()
                 .uint8('length')
@@ -22,9 +44,9 @@ describe('Composite parser', function(){
             checkResult(parser, buffer, {
                 length: 12,
                 message: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-            });
+            }, done);
         });
-        it('should parse array of user defined types', function(){
+        it('should parse array of user defined types', function(done){
             var elementParser = new Parser()
                 .uint8('key')
                 .int16le('value');
@@ -44,9 +66,9 @@ describe('Composite parser', function(){
                     {key: 0xca, value: 1234},
                     {key: 0xbe, value: 1235}
                 ]
-            });
+            }, done);
         });
-        it('should parse array of arrays', function(){
+        it('should parse array of arrays', function(done){
             var rowParser =
                 Parser.start()
                 .uint8('length')
@@ -92,9 +114,9 @@ describe('Composite parser', function(){
                     { length: 5, cols: [0, 8, 16, 24, 32] },
                     { length: 5, cols: [0, 9, 18, 27, 36] }
                 ]
-            });
+            }, done);
         });
-        it('should parse until eof when readUntil is specified', function(){
+        it('should parse until eof when readUntil is specified', function(done){
             var parser =
                 Parser.start()
                 .array('data', {
@@ -105,22 +127,22 @@ describe('Composite parser', function(){
             var buffer = new Buffer([0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
             checkResult(parser, buffer, {
                 data: [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
-            });
+            }, done);
         });
-        it('should parse until function returns true when readUntil is function', function(){
+        it('should parse until function returns true when readUntil is function', function(done){
             var parser =
                 Parser.start()
                 .array('data', {
-                    readUntil: function (item, buf) { return item === 0 },
+                    readUntil: function (item) { return item === 0 },
                     type: 'uint8'
                 });
 
             var buffer = new Buffer([0xff, 0xff, 0xff, 0x01, 0x00]);
             checkResult(parser, buffer, {
                 data: [0xff, 0xff, 0xff, 0x01, 0x00]
-            });
+            }, done);
         });/*
-        it('should parse until function returns true when readUntil is function (using read-ahead)', function(){
+        it('should parse until function returns true when readUntil is function (using read-ahead)', function(done){
             var parser =
                 Parser.start()
                 .array('data', {
@@ -131,9 +153,9 @@ describe('Composite parser', function(){
             var buffer = new Buffer([0xff, 0xff, 0xff, 0x01, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff]);
             checkResult(parser, buffer, {
                 data: [0xff, 0xff, 0xff, 0x01]
-            });
+            }, done);
         });*/
-        it('should parse associative arrays', function(){
+        it('should parse associative arrays', function(done){
             var parser =
                 Parser.start()
                 .int8('numlumps')
@@ -166,9 +188,9 @@ describe('Composite parser', function(){
                         name: "bbbbbbbb"
                     }
                 }
-            });
+            }, done);
         });
-        it('should use formatter to transform parsed array', function(){
+        it('should use formatter to transform parsed array', function(done){
             var parser =
                 Parser.start()
                 .array('data', {
@@ -181,12 +203,12 @@ describe('Composite parser', function(){
             var buffer = new Buffer([0x0a, 0x0a, 0x01, 0x6e]);
             checkResult(parser, buffer, {
                 data: '10.10.1.110'
-            });
+            }, done);
         });
     });
 
     describe('Choice parser', function() {
-        it('should parse choices of primitive types', function() {
+        it('should parse choices of primitive types', function(done) {
             var parser =
                 Parser.start()
                 .uint8('tag1')
@@ -212,9 +234,9 @@ describe('Composite parser', function(){
                 data1: 12345678,
                 tag2: 1,
                 data2: 1234
-            });
+            }, done);
         });
-        it('should parse default choice', function() {
+        it('should parse default choice', function(done) {
             var parser =
                 Parser.start()
                 .uint8('tag')
@@ -233,9 +255,9 @@ describe('Composite parser', function(){
                 tag: 3,
                 data: 0xff,
                 test: 314159
-            });
+            }, done);
         });
-        it('should parse choices of user defied types', function() {
+        it('should parse choices of user defied types', function(done) {
             var parser =
                 Parser.start()
                 .uint8('tag')
@@ -250,6 +272,8 @@ describe('Composite parser', function(){
                     }
                 });
 
+            var cb = getCb(2, done)
+
             var buffer = new Buffer([0x1, 0xc, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64]);
             checkResult(parser, buffer, {
                 tag: 1,
@@ -257,19 +281,19 @@ describe('Composite parser', function(){
                     length: 12,
                     message: 'hello, world'
                 }
-            });
+            }, cb);
             buffer = new Buffer([0x03, 0x4e, 0x61, 0xbc, 0x00]);
             checkResult(parser, buffer, {
                 tag: 3,
                 data: {
                     number: 12345678
                 }
-            });
+            }, cb);
         });
     });
 
     describe('Nest parser', function() {
-        it('should parse nested parsers', function() {
+        it('should parse nested parsers', function(done) {
             var nameParser = new Parser()
                 .string('firstName', {
                     zeroTerminated: true
@@ -296,10 +320,10 @@ describe('Composite parser', function(){
                 info: {
                     age: 0x20
                 }
-            });
+            }, done);
         });
 
-        it('should format parsed nested parser', function() {
+        it('should format parsed nested parser', function(done) {
             var nameParser = new Parser()
                 .string('firstName', {
                     zeroTerminated: true
@@ -320,7 +344,7 @@ describe('Composite parser', function(){
             var buffer = new Buffer('John\0Doe\0');
             checkResult(personParser, buffer, {
                 name: 'John Doe'
-            });
+            }, done);
         });
     });
 
@@ -400,8 +424,11 @@ describe('Composite parser', function(){
     });
 
     describe('Parse other fields after bit', function() {
-        it('Parse uint8', function() {
+        it('Parse uint8', function(done) {
             var buffer = new Buffer([0, 1, 0, 4]);
+
+            var cb = getCb(8, done)
+
             for (var i = 17; i <= 24; i++) {
                 var parser =
                     Parser.start()['bit' + i]('a').uint8('b');
@@ -409,7 +436,7 @@ describe('Composite parser', function(){
                 checkResult(parser, buffer, {
                     a: 1 << (i - 16),
                     b: 4,
-                });
+                }, cb);
             }
         });
     });
