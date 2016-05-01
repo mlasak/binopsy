@@ -3,7 +3,7 @@
 var Parser = require('binary-serializer')
 
 //copied from node-tar
-var FILETYPES =
+var RECORDTYPES =
   { 0: "File"
   , "\0": "File" // like 0
   , "": "File"
@@ -57,7 +57,7 @@ var TarRecord = Parser.start()
 
                   return checksumBuffer
                 }})
-                .string('type', {__proto__: mapFormatter(FILETYPES), length: 1, encoding: 'ascii'})
+                .string('type', {__proto__: mapFormatter(RECORDTYPES), length: 1, encoding: 'ascii'})
                 .string('linkname', {length: 100, encoding: 'ascii', stripNull: true})
                 .string('magic', {length: 6, encoding: 'ascii', /*assert: 'ustar\0'*/})
                 .string('version', {length: 2, encoding: 'ascii', /*assert: '00'*/})
@@ -80,8 +80,8 @@ var TarFile = Parser.start().array('entries', {
 })
 
 module.exports = {
-  TarFile: TarFile,
-  TarRecord: TarRecord
+  File: TarFile,
+  Record: TarRecord
 }
 
 function octalOpts(length){
@@ -104,7 +104,7 @@ function octalOpts(length){
 }
 
 function mapFormatter(map){
-  var inverse = {}
+  var inverse = Object.create(null)
 
   for(var k in map){
     if(!(map[k] in inverse)) inverse[map[k]] = k
