@@ -95,7 +95,7 @@ Bin.prototype.getCode = function () { throw new Error('not implemented') }
 
 Bin.prototype.parse = function (buffer, callback) {
   this._flushBitfield()
-  return this.parser.parse(buffer, callback)
+  return this.parser.parse(buffer, callback) || {}
 }
 
 Bin.prototype.stream = function () {
@@ -134,7 +134,7 @@ Object.defineProperty(Bin.prototype, 'fixedSize', {
 })
 
 Bin.prototype.nest = function (varName, options) {
-  var type = getType(options.type)
+  var type = getType(options.type, true)
   var opts = {__proto__: options, type: type}
 
   if (type.bitRequests.length) {
@@ -174,7 +174,7 @@ Bin.prototype._flushBitfield = function () {
   this.serializer._processBitfield(reqs, length)
   this.parser.processBitfield(reqs, length)
 
-  reqs.length = 0
+  this.bitRequests = []
 }
 
 // copied from binary_parser.js
