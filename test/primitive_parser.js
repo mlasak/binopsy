@@ -9,7 +9,10 @@ function checkResult(parser, buffer, object, done){
   var received = false
 
   var stream = parser.stream().on('data', function (parsed) {
-    assert.deepEqual(parsed, object)
+    // parse only once
+    if (!received) {
+      assert.deepEqual(parsed, object)
+    }
     received = true
   }).on('end', function () {
     if (received) done()
@@ -323,6 +326,24 @@ describe('Primitive parser', function(){
 
             checkResult(parser, buffer, { len: 8, raw: buf }, done);
         });
+
+        it('should parse empty buffers', function (done) {
+            var parser = new Parser()
+                .buffer('raw', {
+                    readUntil: 'eof'
+                });
+
+            var buf = new Buffer([]);
+
+            checkResult(parser, buf, { raw: buf }, function() {
+              parser = new Parser()
+                  .buffer('raw', {
+                      length: 300
+                  });
+
+              checkResult(parser, buf, { raw: buf }, done);
+            });
+        })
 
         it('should clone buffer if options.clone is true', function(done) {
             var parser = new Parser()
