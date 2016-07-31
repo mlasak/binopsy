@@ -440,4 +440,23 @@ describe('Composite parser', function(){
             }
         });
     });
+
+    describe('Fixed size nest', function() {
+        it('Nested primitive', function(done) {
+          var parser =
+              Parser.start()
+              .fixedSizeNest('fixed_nest', {
+                  length: 2,
+                  type: 'int8'
+              })
+              .int8('trailing');
+
+          var buffer = new Buffer([1, 0, 3]);
+
+          checkResult(parser, buffer, {
+              fixed_nest: 1,
+              trailing: 3
+          }, done);
+        });
+    });
 });

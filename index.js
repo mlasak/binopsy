@@ -39,14 +39,16 @@ Bin.prototype.sizeOf = function (obj) {
   return this.serializer.sizeFunc(obj)
 }
 
-;['string', 'buffer', 'array']
+;['string', 'buffer', 'array', 'fixedSizeNest']
   .concat(PRIMITIVES)
   .forEach(function (name) {
     Bin.prototype[name] = function (varName, options) {
       this._flushBitfield()
 
-      this.parser[name](varName, options, options && options.type && getType(options.type))
-      this.serializer[name](varName, options)
+      const type = options && options.type && getType(options.type);
+
+      this.parser[name](varName, options, type)
+      this.serializer[name](varName, options, type)
       return this
     }
   })
