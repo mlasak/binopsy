@@ -235,6 +235,18 @@ describe('Primitive parser', function(){
                 }
             }, done);
         });
+
+        it('should parse 32bit fields', function(done) {
+          var parser = new Parser()
+              .endianess('big')
+              .bit32('a');
+
+          var buf = new Buffer([49,204,205,255]);
+
+          checkResult(parser, buf, {
+                a: 835505663
+          }, done);
+        });
     });
 
     describe('String parser', function() {
