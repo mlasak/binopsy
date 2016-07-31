@@ -23,6 +23,6 @@ file.pipe(tar.Record.stream()).on('data', function (d) {
       mkdirp.sync(d.name)
       break
     default:
-      throw new Error('Unknown type' + d.type)
+      throw new Error('Unknown type ' + d.type)
   }
 })

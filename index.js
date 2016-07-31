@@ -13,7 +13,7 @@ const PRIMITIVES = Object.keys(PRIMITIVE_TYPES).map(function (key) {
 })
 
 // array with ints 1..24
-const BIT_VALS = Array.apply(null, Array(24)).map(function (_, i) { return i + 1 })
+const BIT_VALS = Array.apply(null, Array(32)).map(function (_, i) { return i + 1 })
 
 function Bin () {
   this.parser = new Parser()
