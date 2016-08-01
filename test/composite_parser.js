@@ -290,6 +290,27 @@ describe('Composite parser', function(){
                 }
             }, cb);
         });
+        it('should accept a function as a tag', function(done) {
+            var parser =
+                Parser.start()
+                .uint8('tag')
+                .choice('data', {
+                    tag: function (obj) { return obj.tag },
+                    choices: {
+                        0: 'int32le',
+                        1: 'int16le'
+                    },
+                    defaultChoice: 'uint8'
+                })
+                .int32le('test');
+
+            buffer = new Buffer([0x03, 0xff, 0x2f, 0xcb, 0x04, 0x0]);
+            checkResult(parser, buffer, {
+                tag: 3,
+                data: 0xff,
+                test: 314159
+            }, done);
+        });
         it('should flatten user defined types with option', function(done) {
             var parser =
                 Parser.start()

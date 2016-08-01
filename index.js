@@ -66,7 +66,7 @@ Bin.prototype.choice = function (varName, options) {
   const defaultChoice = options.defaultChoice && getType(options.defaultChoice)
 
   const tag = options.tag
-  function getTag (obj) {
+  const getTag = typeof tag === 'function' ? tag : function getTag (obj) {
     if (!(tag in obj)) throw new Error('tag `' + tag + '` not found in object')
     return obj[tag]
   }
