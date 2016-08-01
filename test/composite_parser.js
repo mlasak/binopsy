@@ -309,20 +309,16 @@ describe('Composite parser', function(){
             var cb = getCb(2, done)
 
             var buffer = new Buffer([0x1, 0xc, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64]);
-            var result = {
+            checkResult(parser, buffer, {
                 tag: 1,
                 length: 12,
                 message: 'hello, world'
-            };
-            result.data = result;
-            checkResult(parser, buffer, result, cb);
+            }, cb);
             buffer = new Buffer([0x03, 0x4e, 0x61, 0xbc, 0x00]);
-            result = {
+            checkResult(parser, buffer, {
                 tag: 3,
                 number: 12345678
-            };
-            result.data = result;
-            checkResult(parser, buffer, result, cb);
+            }, cb);
         });
     });
 
