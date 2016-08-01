@@ -290,6 +290,40 @@ describe('Composite parser', function(){
                 }
             }, cb);
         });
+        it('should flatten user defined types with option', function(done) {
+            var parser =
+                Parser.start()
+                .uint8('tag')
+                .choice('data', {
+                    tag: 'tag',
+                    choices: {
+                        1: Parser.start()
+                            .uint8('length')
+                            .string('message', {length: 'length'}),
+                        3: Parser.start()
+                            .int32le('number')
+                    },
+                    flatten: true
+                });
+
+            var cb = getCb(2, done)
+
+            var buffer = new Buffer([0x1, 0xc, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x2c, 0x20, 0x77, 0x6f, 0x72, 0x6c, 0x64]);
+            var result = {
+                tag: 1,
+                length: 12,
+                message: 'hello, world'
+            };
+            result.data = result;
+            checkResult(parser, buffer, result, cb);
+            buffer = new Buffer([0x03, 0x4e, 0x61, 0xbc, 0x00]);
+            result = {
+                tag: 3,
+                number: 12345678
+            };
+            result.data = result;
+            checkResult(parser, buffer, result, cb);
+        });
     });
 
     describe('Nest parser', function() {
