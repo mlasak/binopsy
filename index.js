@@ -45,7 +45,7 @@ Bin.prototype.sizeOf = function (obj) {
     Bin.prototype[name] = function (varName, options) {
       this._flushBitfield()
 
-      const type = options && options.type && getType(options.type);
+      const type = options && options.type && getType(options.type)
 
       this.parser[name](varName, options, type)
       this.serializer[name](varName, options, type)
