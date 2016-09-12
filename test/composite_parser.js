@@ -385,9 +385,9 @@ describe('Composite parser', function(){
             var personParser = new Parser()
                 .nest('name', {
                     type: nameParser,
-                    formatter: function(name) { return name.firstName + ' ' + name.lastName },
+                    formatter: function(name) { return name && name.firstName + ' ' + name.lastName },
                     deformatter: function(name) {
-                      var parts = name.split(' ');
+                      var parts = name ? name.split(' ') : ['', ''];
                       return {firstName: parts[0], lastName: parts[1]};
                     }
                 })
