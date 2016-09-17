@@ -311,6 +311,13 @@ describe('Primitive parser', function(){
             checkResult(parser1, buffer, {str: 'test\u0000\u0000'}, cb);
             checkResult(parser2, buffer, {str: 'test'}, cb);
         });
+        it('should parse infinitely sized string', function(done){
+            var text = 'hello, world';
+            var buffer = new Buffer(text, 'ascii');
+            var parser = Parser.start().string('msg', {length: Infinity, encoding: 'ascii'});
+
+            checkResult(parser, buffer, {msg: text}, done);
+        });
     });
 
     describe('Buffer parser', function() {
