@@ -318,6 +318,28 @@ describe('Primitive parser', function(){
 
             checkResult(parser, buffer, {msg: text}, done);
         });
+        it('should parse nested infinitely sized string', function(done){
+            var buffer = new Buffer([2,65,66,2,65,66]);
+            var parser = new Parser().array('data', {
+              type: new Parser()
+                .uint8('len')
+                .fixedSizeNest('data', {
+                  length: 2,
+                  type: new Parser().string('str', { length: Infinity })
+              }),
+              length: 2
+            });
+
+            checkResult(parser, buffer, {
+              data: [{
+                len: 2,
+                data: { str: 'AB' }
+              }, {
+                len: 2,
+                data: { str: 'AB' }
+              }]
+            }, done);
+        });
     });
 
     describe('Buffer parser', function() {
