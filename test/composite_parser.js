@@ -9,6 +9,7 @@ function checkResult(parser, buffer, object, done){
   var received = false
 
   var stream = parser.stream().on('data', function (parsed) {
+    if (received) return // might be triggered a second time, ignored here
     assert.deepEqual(parsed, object)
     received = true
   }).on('end', function () {
@@ -509,5 +510,19 @@ describe('Composite parser', function(){
               trailing: 3
           }, done);
         });
+    });
+
+    it('Nested infinitely sized string', function(done){
+        var text = 'hello, world0';
+        var buffer = new Buffer(text);
+        var parser =
+            Parser.start()
+            .fixedSizeNest('fixed_nest', {
+                length: 12,
+                type: Parser.start().string('msg', {length: Infinity})
+            })
+            .int8('trailing');
+
+        checkResult(parser, buffer, {fixed_nest: {msg: text.slice(0, -1)}, trailing: 48}, done);
     });
 });
