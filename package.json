@@ -1,8 +1,8 @@
 {
-  "name": "binary-serializer",
+  "name": "binopsy",
   "author": "Felix Boehm <me@feedic.com>",
   "version": "0.0.0",
-  "description": "Serializing counterpart of binary-parser",
+  "description": "Reimplementation of binary-parser supporting serialization and streaming",
   "main": "index.js",
   "devDependencies": {
     "istanbul": "^0.3.14",
@@ -26,7 +26,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "http://github.com/fb55/binary-serializer.git"
+    "url": "http://github.com/fb55/binopsy.git"
   },
   "dependencies": {
     "binary-parser": "^1.1.5"
