@@ -229,7 +229,7 @@ describe('Primitive parser', function(){
 
             parser = new Parser()
                 .endianess('little')
-                .bit1('a');
+                .bit48('a');
             checkResult(parser, buf, {
                 a: 281474976710655
             }, cb);
